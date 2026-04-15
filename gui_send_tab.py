@@ -123,6 +123,9 @@ class SendTab(ttk.Frame):
             messagebox.showerror("設定未完了", "「設定」タブでGmailアドレスとアプリパスワードを設定してください。")
             return
 
+        if self._coord is None:
+            return
+
         skipped = [mr for mr in self._match_results if mr.pdf_path is None]
         if skipped:
             names = "\n".join(f"  ・{mr.employee.name}" for mr in skipped)

@@ -95,5 +95,10 @@ class _EmployeeDialog(tk.Toplevel):
         self.wait_window()
 
     def _ok(self):
-        self.result = {k: v.get().strip() for k, v in self._vars.items()}
+        values = {k: v.get().strip() for k, v in self._vars.items()}
+        if not values["name"] or not values["email"]:
+            from tkinter import messagebox
+            messagebox.showwarning("入力エラー", "名前とメールアドレスは必須です。")
+            return
+        self.result = values
         self.destroy()

@@ -25,12 +25,12 @@ class MailSender:
         msg["Subject"] = subject
         msg.attach(MIMEText(body, "plain", "utf-8"))
 
-        with Path(pdf_path).open("rb") as f:
-            part = MIMEApplication(f.read(), _subtype="pdf")
-            part.add_header("Content-Disposition", "attachment", filename=Path(pdf_path).name)
-            msg.attach(part)
-
         try:
+            with Path(pdf_path).open("rb") as f:
+                part = MIMEApplication(f.read(), _subtype="pdf")
+                part.add_header("Content-Disposition", "attachment", filename=Path(pdf_path).name)
+                msg.attach(part)
+
             with smtplib.SMTP_SSL(self.SMTP_HOST, self.SMTP_PORT) as server:
                 server.login(self._address, self._password)
                 server.sendmail(self._address, to_email, msg.as_string())
