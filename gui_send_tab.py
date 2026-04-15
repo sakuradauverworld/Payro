@@ -41,6 +41,7 @@ class SendTab(ttk.Frame):
         ttk.Label(top, text="月").pack(side="left", padx=(0, 12))
 
         ttk.Button(top, text="フォルダを選択", command=self._select_folder).pack(side="left", padx=4)
+        ttk.Button(top, text="ファイルを選択", command=self._select_files).pack(side="left", padx=4)
         ttk.Button(top, text="クリア", command=self._clear).pack(side="left")
 
         # ドロップエリア
@@ -74,6 +75,15 @@ class SendTab(ttk.Frame):
         folder = filedialog.askdirectory(title="PDFフォルダを選択")
         if folder:
             self._pdf_paths = list(Path(folder).glob("*.pdf"))
+            self._update_tree()
+
+    def _select_files(self):
+        files = filedialog.askopenfilenames(
+            title="PDFファイルを選択",
+            filetypes=[("PDFファイル", "*.pdf"), ("すべてのファイル", "*.*")]
+        )
+        if files:
+            self._pdf_paths = [Path(f) for f in files]
             self._update_tree()
 
     def _on_drop(self, event):

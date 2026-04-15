@@ -1,5 +1,10 @@
+import re
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+
+
+def is_valid_email(email: str) -> bool:
+    return bool(re.match(r'^[^@\s]+@[^@\s]+\.[^@\s]+$', email))
 
 
 class EmployeeTab(ttk.Frame):
@@ -99,6 +104,10 @@ class _EmployeeDialog(tk.Toplevel):
         if not values["name"] or not values["email"]:
             from tkinter import messagebox
             messagebox.showwarning("入力エラー", "名前とメールアドレスは必須です。")
+            return
+        if not is_valid_email(values["email"]):
+            from tkinter import messagebox
+            messagebox.showwarning("入力エラー", "メールアドレスの形式が正しくありません。\n（例: name@example.com）")
             return
         self.result = values
         self.destroy()

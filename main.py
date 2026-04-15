@@ -3,6 +3,12 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import ttk
 
+try:
+    from tkinterdnd2 import TkinterDnD as _TkDnD
+    _TkBase = _TkDnD.Tk
+except Exception:
+    _TkBase = tk.Tk
+
 # data/ フォルダをEXEと同じ場所に配置
 DATA_DIR = Path(sys.executable).parent / "data" if getattr(sys, "frozen", False) else Path(__file__).parent / "data"
 DATA_DIR.mkdir(exist_ok=True)
@@ -18,7 +24,7 @@ from gui_employee_tab import EmployeeTab
 from gui_settings_tab import SettingsTab
 
 
-class App(tk.Tk):
+class App(_TkBase):
     def __init__(self):
         super().__init__()
         self.title("Payro - 給与明細一括送信")
