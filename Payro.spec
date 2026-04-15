@@ -1,4 +1,5 @@
 # -*- mode: python ; coding: utf-8 -*-
+import sys
 
 
 a = Analysis(
@@ -36,3 +37,11 @@ exe = EXE(
     codesign_identity=None,
     entitlements_file=None,
 )
+
+if sys.platform == 'darwin':
+    app = BUNDLE(
+        exe,
+        name='Payro.app',
+        icon=None,
+        bundle_identifier='com.payro.app',
+    )
