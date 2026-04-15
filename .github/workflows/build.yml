@@ -27,13 +27,8 @@ jobs:
       - name: 依存関係インストール
         run: pip install -r requirements.txt
 
-      - name: ビルド（Windows）
-        if: runner.os == 'Windows'
+      - name: ビルド
         run: pyinstaller Payro.spec
-
-      - name: ビルド（macOS universal2）
-        if: runner.os == 'macOS'
-        run: pyinstaller --target-arch universal2 Payro.spec
 
       - name: 成果物を準備（Windows）
         if: runner.os == 'Windows'
