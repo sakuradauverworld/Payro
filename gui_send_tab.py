@@ -146,6 +146,11 @@ class SendTab(ttk.Frame):
         if self._coord is None:
             return
 
+        # 送信直前に最新の従業員リストで再マッチング（PDF選択後の従業員変更に対応）
+        employees = self._app.employee_mgr.employees
+        self._coord = SendCoordinator(employees=employees, pdf_paths=self._pdf_paths)
+        self._match_results = self._coord.match()
+
         no_pdf = [mr for mr in self._match_results
                   if not mr.employee.excluded and mr.pdf_path is None]
         if no_pdf:
