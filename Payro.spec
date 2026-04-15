@@ -1,12 +1,15 @@
 # -*- mode: python ; coding: utf-8 -*-
 import sys
+import os
+import tkinterdnd2
 
+tkdnd_path = os.path.join(os.path.dirname(tkinterdnd2.__file__), 'tkdnd')
 
 a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[],
+    datas=[(tkdnd_path, 'tkinterdnd2/tkdnd')],
     hiddenimports=['tkinterdnd2', 'keyring.backends.Windows', 'keyring.backends.macOS', 'keyring.backends.macOS.api'],
     hookspath=[],
     hooksconfig={},
