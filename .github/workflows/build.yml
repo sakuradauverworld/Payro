@@ -1,0 +1,42 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: Payro.exe
+            asset_name: Payro-windows.exe
+          - os: macos-latest
+            artifact_name: Payro
+            asset_name: Payro-mac
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 依存関係インストール
+        run: pip install -r requirements.txt
+
+      - name: ビルド
+        run: pyinstaller Payro.spec
+
+      - name: 成果物をリネーム
+        shell: bash
+        run: mv dist/${{ matrix.artifact_name }} dist/${{ matrix.asset_name }}
+
+      - name: GitHub Releaseに公開
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.asset_name }}
