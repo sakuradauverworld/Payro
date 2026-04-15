@@ -12,10 +12,8 @@ jobs:
         include:
           - os: windows-latest
             asset_name: Payro-windows.exe
-          - os: macos-13
-            asset_name: Payro-mac-intel.zip
           - os: macos-latest
-            asset_name: Payro-mac-arm.zip
+            asset_name: Payro-mac.zip
 
     runs-on: ${{ matrix.os }}
 
@@ -29,8 +27,13 @@ jobs:
       - name: 依存関係インストール
         run: pip install -r requirements.txt
 
-      - name: ビルド
+      - name: ビルド（Windows）
+        if: runner.os == 'Windows'
         run: pyinstaller Payro.spec
+
+      - name: ビルド（macOS universal2）
+        if: runner.os == 'macOS'
+        run: pyinstaller --target-arch universal2 Payro.spec
 
       - name: 成果物を準備（Windows）
         if: runner.os == 'Windows'
@@ -39,7 +42,7 @@ jobs:
 
       - name: 成果物を準備（macOS）
         if: runner.os == 'macOS'
-        run: cd dist && zip -r ${{ matrix.asset_name }} Payro.app
+        run: cd dist && zip -r Payro-mac.zip Payro.app
 
       - name: GitHub Releaseに公開
         uses: softprops/action-gh-release@v2
