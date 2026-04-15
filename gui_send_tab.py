@@ -1,3 +1,4 @@
+import re
 import threading
 import tkinter as tk
 from datetime import datetime
@@ -13,6 +14,8 @@ class SendTab(ttk.Frame):
         super().__init__(parent)
         self._app = app
         self._pdf_paths: list[Path] = []
+        self._match_results: list = []
+        self._coord: SendCoordinator | None = None
         self._build()
         self._try_init_dnd()
 
@@ -76,7 +79,6 @@ class SendTab(ttk.Frame):
     def _on_drop(self, event):
         raw = event.data
         # tkinterdnd2はスペース区切りで複数ファイルを返す（パスにスペースがある場合は{}で囲まれる）
-        import re
         paths = re.findall(r'\{([^}]+)\}|(\S+)', raw)
         self._pdf_paths = [Path(p[0] or p[1]) for p in paths if (p[0] or p[1]).lower().endswith(".pdf")]
         self._update_tree()
@@ -113,6 +115,9 @@ class SendTab(ttk.Frame):
         self._send_btn.config(state="normal")
 
     def _send(self):
+        if not self._year_var.get().isdigit() or not self._month_var.get().isdigit():
+            messagebox.showerror("入力エラー", "年月は数値で入力してください。")
+            return
         cfg = self._app.config_data
         if not cfg.is_configured():
             messagebox.showerror("設定未完了", "「設定」タブでGmailアドレスとアプリパスワードを設定してください。")
