@@ -15,14 +15,18 @@ class EmployeeTab(ttk.Frame):
         self._refresh()
 
     def _build(self):
-        cols = ("name", "email", "filename_pattern")
+        cols = ("excluded", "name", "email", "filename_pattern")
         self._tree = ttk.Treeview(self, columns=cols, show="headings", height=18)
+        self._tree.heading("excluded", text="送信対象")
         self._tree.heading("name", text="名前")
         self._tree.heading("email", text="メールアドレス")
         self._tree.heading("filename_pattern", text="ファイル名キーワード")
+        self._tree.column("excluded", width=80, anchor="center")
         self._tree.column("name", width=160)
         self._tree.column("email", width=240)
         self._tree.column("filename_pattern", width=200)
+        self._tree.tag_configure("excluded", foreground="gray")
+        self._tree.bind("<Button-1>", self._on_click)
         self._tree.pack(side="left", fill="both", expand=True, padx=(8, 0), pady=8)
 
         scrollbar = ttk.Scrollbar(self, orient="vertical", command=self._tree.yview)
@@ -38,7 +42,11 @@ class EmployeeTab(ttk.Frame):
     def _refresh(self):
         self._tree.delete(*self._tree.get_children())
         for emp in self._app.employee_mgr.employees:
-            self._tree.insert("", "end", values=(emp.name, emp.email, emp.filename_pattern))
+            checkbox = "☐" if emp.excluded else "☑"
+            tags = ("excluded",) if emp.excluded else ()
+            self._tree.insert("", "end",
+                               values=(checkbox, emp.name, emp.email, emp.filename_pattern),
+                               tags=tags)
 
     def _add(self):
         dialog = _EmployeeDialog(self, title="従業員を追加")
@@ -59,7 +67,9 @@ class EmployeeTab(ttk.Frame):
                                   initial={"name": emp.name, "email": emp.email, "filename_pattern": emp.filename_pattern})
         if dialog.result:
             from employee_manager import Employee
-            self._app.employee_mgr.update(idx, Employee(**dialog.result))
+            new_emp = Employee(**dialog.result)
+            new_emp.excluded = emp.excluded
+            self._app.employee_mgr.update(idx, new_emp)
             self._app.employee_mgr.save()
             self._refresh()
 
@@ -72,6 +82,16 @@ class EmployeeTab(ttk.Frame):
         name = self._app.employee_mgr.employees[idx].name
         if messagebox.askyesno("確認", f"「{name}」を削除しますか？"):
             self._app.employee_mgr.remove(idx)
+            self._app.employee_mgr.save()
+            self._refresh()
+
+    def _on_click(self, event):
+        column = self._tree.identify_column(event.x)
+        row_id = self._tree.identify_row(event.y)
+        if column == "#1" and row_id:
+            idx = self._tree.index(row_id)
+            emp = self._app.employee_mgr.employees[idx]
+            emp.excluded = not emp.excluded
             self._app.employee_mgr.save()
             self._refresh()
 
