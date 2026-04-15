@@ -9,9 +9,14 @@ try:
 except Exception:
     _TkBase = tk.Tk
 
-# data/ フォルダをEXEと同じ場所に配置
-DATA_DIR = Path(sys.executable).parent / "data" if getattr(sys, "frozen", False) else Path(__file__).parent / "data"
-DATA_DIR.mkdir(exist_ok=True)
+if getattr(sys, "frozen", False):
+    if sys.platform == "darwin":
+        DATA_DIR = Path.home() / "Library" / "Application Support" / "Payro" / "data"
+    else:
+        DATA_DIR = Path(sys.executable).parent / "data"
+else:
+    DATA_DIR = Path(__file__).parent / "data"
+DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 CONFIG_PATH = DATA_DIR / "config.json"
 EMPLOYEES_PATH = DATA_DIR / "employees.csv"
