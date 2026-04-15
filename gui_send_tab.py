@@ -59,12 +59,13 @@ class SendTab(ttk.Frame):
         self._tree.heading("name", text="名前")
         self._tree.heading("email", text="メールアドレス")
         self._tree.heading("filename", text="PDFファイル名")
-        self._tree.column("status", width=60, anchor="center")
+        self._tree.column("status", width=80, anchor="center")
         self._tree.column("name", width=140)
         self._tree.column("email", width=220)
         self._tree.column("filename", width=300)
         self._tree.tag_configure("ok", background="#d4edda")
-        self._tree.tag_configure("ng", background="#f8d7da")
+        self._tree.tag_configure("warn", background="#f8d7da")
+        self._tree.tag_configure("skip", background="#e9ecef", foreground="gray")
         self._tree.pack(fill="both", expand=True, padx=8, pady=4)
 
         # 送信ボタン
@@ -110,13 +111,17 @@ class SendTab(ttk.Frame):
         self._coord = coord
 
         for mr in self._match_results:
-            if mr.pdf_path:
+            if mr.employee.excluded:
+                tag = "skip"
+                status = "除外中"
+                filename = "—"
+            elif mr.pdf_path:
                 tag = "ok"
-                status = "✓"
+                status = "送信予定"
                 filename = mr.pdf_path.name
             else:
-                tag = "ng"
-                status = "✗"
+                tag = "warn"
+                status = "PDFなし"
                 filename = "（PDFなし）"
             self._tree.insert("", "end",
                                values=(status, mr.employee.name, mr.employee.email, filename),
@@ -128,6 +133,11 @@ class SendTab(ttk.Frame):
         if not self._year_var.get().isdigit() or not self._month_var.get().isdigit():
             messagebox.showerror("入力エラー", "年月は数値で入力してください。")
             return
+        year_int = int(self._year_var.get())
+        month_int = int(self._month_var.get())
+        if not (1900 <= year_int <= 2100) or not (1 <= month_int <= 12):
+            messagebox.showerror("入力エラー", "年は1900〜2100、月は1〜12で入力してください。")
+            return
         cfg = self._app.config_data
         if not cfg.is_configured():
             messagebox.showerror("設定未完了", "「設定」タブでGmailアドレスとアプリパスワードを設定してください。")
@@ -136,12 +146,13 @@ class SendTab(ttk.Frame):
         if self._coord is None:
             return
 
-        skipped = [mr for mr in self._match_results if mr.pdf_path is None]
-        if skipped:
-            names = "\n".join(f"  ・{mr.employee.name}" for mr in skipped)
+        no_pdf = [mr for mr in self._match_results
+                  if not mr.employee.excluded and mr.pdf_path is None]
+        if no_pdf:
+            names = "\n".join(f"  ・{mr.employee.name}" for mr in no_pdf)
             ok = messagebox.askyesno(
                 "確認",
-                f"以下の{len(skipped)}名はPDFがありません。スキップして残りに送信しますか？\n\n{names}"
+                f"以下の方はPDFが見つかりません（除外設定されていません）。\nこのまま送信しますか？\n\n{names}"
             )
             if not ok:
                 return
