@@ -51,3 +51,27 @@ def test_find_by_filename_no_match(tmp_csv):
 def test_missing_file_creates_empty(tmp_path):
     mgr = EmployeeManager(tmp_path / "employees.csv")
     assert mgr.employees == []
+
+def test_find_by_filename_longest_pattern_wins(tmp_path):
+    """短いパターンと長いパターンが両方マッチする場合、長い方が優先される"""
+    csv_path = tmp_path / "employees.csv"
+    csv_path.write_text(
+        "name,email,filename_pattern\n田中,tanaka@example.com,田中\n田中太郎,taro@example.com,田中太郎\n",
+        encoding="utf-8"
+    )
+    mgr = EmployeeManager(csv_path)
+    emp = mgr.find_by_filename("給与明細_田中太郎_202604.pdf")
+    assert emp is not None
+    assert emp.name == "田中太郎"
+
+def test_find_by_filename_shorter_pattern_still_works(tmp_path):
+    """長いパターンがマッチしない場合、短いパターンにフォールバックする"""
+    csv_path = tmp_path / "employees.csv"
+    csv_path.write_text(
+        "name,email,filename_pattern\n田中,tanaka@example.com,田中\n田中太郎,taro@example.com,田中太郎\n",
+        encoding="utf-8"
+    )
+    mgr = EmployeeManager(csv_path)
+    emp = mgr.find_by_filename("給与明細_田中_202604.pdf")
+    assert emp is not None
+    assert emp.name == "田中"

@@ -45,7 +45,8 @@ class EmployeeManager:
         self.employees[index] = employee
 
     def find_by_filename(self, filename: str) -> Employee | None:
-        for emp in self.employees:
-            if emp.filename_pattern in filename:
+        sorted_employees = sorted(self.employees, key=lambda e: len(e.filename_pattern), reverse=True)
+        for emp in sorted_employees:
+            if emp.filename_pattern and emp.filename_pattern in filename:
                 return emp
         return None
