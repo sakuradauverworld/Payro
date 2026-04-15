@@ -12,8 +12,10 @@ jobs:
         include:
           - os: windows-latest
             asset_name: Payro-windows.exe
+          - os: macos-13
+            asset_name: Payro-mac-intel.zip
           - os: macos-latest
-            asset_name: Payro-mac.zip
+            asset_name: Payro-mac-arm.zip
 
     runs-on: ${{ matrix.os }}
 
@@ -37,7 +39,7 @@ jobs:
 
       - name: 成果物を準備（macOS）
         if: runner.os == 'macOS'
-        run: cd dist && zip -r Payro-mac.zip Payro.app
+        run: cd dist && zip -r ${{ matrix.asset_name }} Payro.app
 
       - name: GitHub Releaseに公開
         uses: softprops/action-gh-release@v2
