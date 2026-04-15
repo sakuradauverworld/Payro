@@ -1,4 +1,5 @@
 import tkinter as tk
+import webbrowser
 from tkinter import ttk, messagebox
 
 
@@ -25,21 +26,26 @@ class SettingsTab(ttk.Frame):
         ttk.Label(self, text="※ Googleアカウント → セキュリティ → アプリパスワード で発行してください",
                   foreground="gray").grid(row=3, column=0, columnspan=2, sticky="w", padx=12)
 
-        ttk.Separator(self, orient="horizontal").grid(row=4, column=0, columnspan=2, sticky="ew", pady=12)
-        ttk.Label(self, text="メールテンプレート", font=("", 11, "bold")).grid(row=5, column=0, columnspan=2, sticky="w", **pad)
+        link = tk.Label(self, text="https://myaccount.google.com/apppasswords",
+                        foreground="blue", cursor="hand2")
+        link.grid(row=4, column=0, columnspan=2, sticky="w", padx=12)
+        link.bind("<Button-1>", lambda _: webbrowser.open("https://myaccount.google.com/apppasswords"))
 
-        ttk.Label(self, text="件名:").grid(row=6, column=0, sticky="e", **pad)
+        ttk.Separator(self, orient="horizontal").grid(row=5, column=0, columnspan=2, sticky="ew", pady=12)
+        ttk.Label(self, text="メールテンプレート", font=("", 11, "bold")).grid(row=6, column=0, columnspan=2, sticky="w", **pad)
+
+        ttk.Label(self, text="件名:").grid(row=7, column=0, sticky="e", **pad)
         self._subject_var = tk.StringVar()
-        ttk.Entry(self, textvariable=self._subject_var, width=60).grid(row=6, column=1, sticky="w", **pad)
+        ttk.Entry(self, textvariable=self._subject_var, width=60).grid(row=7, column=1, sticky="w", **pad)
 
-        ttk.Label(self, text="本文:").grid(row=7, column=0, sticky="ne", **pad)
+        ttk.Label(self, text="本文:").grid(row=8, column=0, sticky="ne", **pad)
         self._body_text = tk.Text(self, width=60, height=6)
-        self._body_text.grid(row=7, column=1, sticky="w", **pad)
+        self._body_text.grid(row=8, column=1, sticky="w", **pad)
 
         ttk.Label(self, text="使用可能変数: {name} {year} {month}", foreground="gray").grid(
-            row=8, column=1, sticky="w", padx=12)
+            row=9, column=1, sticky="w", padx=12)
 
-        ttk.Button(self, text="保存", command=self._save).grid(row=9, column=1, sticky="e", **pad)
+        ttk.Button(self, text="保存", command=self._save).grid(row=10, column=1, sticky="e", **pad)
 
     def _load(self):
         cfg = self._app.config_data
