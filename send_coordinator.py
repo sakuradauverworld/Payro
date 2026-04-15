@@ -56,14 +56,24 @@ class SendCoordinator:
         self._pdf_paths = pdf_paths
 
     def match(self) -> list[MatchResult]:
-        results = []
-        for emp in self._employees:
-            matched_pdf = next(
-                (p for p in self._pdf_paths if emp.filename_pattern in p.name),
-                None,
+        pdf_to_employee: dict = {}
+        for pdf_path in self._pdf_paths:
+            best = None
+            for emp in self._employees:
+                if emp.excluded:
+                    continue
+                if emp.filename_pattern and emp.filename_pattern in pdf_path.name:
+                    if best is None or len(emp.filename_pattern) > len(best.filename_pattern):
+                        best = emp
+            if best is not None:
+                pdf_to_employee[pdf_path] = best
+        return [
+            MatchResult(
+                employee=emp,
+                pdf_path=next((p for p, e in pdf_to_employee.items() if e == emp), None),
             )
-            results.append(MatchResult(employee=emp, pdf_path=matched_pdf))
-        return results
+            for emp in self._employees
+        ]
 
     def execute(
         self,
@@ -81,7 +91,7 @@ class SendCoordinator:
 
         for mr in match_results:
             emp = mr.employee
-            if mr.pdf_path is None:
+            if emp.excluded or mr.pdf_path is None:
                 report.skipped.append(emp.name)
                 continue
 
