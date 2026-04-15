@@ -75,3 +75,36 @@ def test_find_by_filename_shorter_pattern_still_works(tmp_path):
     emp = mgr.find_by_filename("給与明細_田中_202604.pdf")
     assert emp is not None
     assert emp.name == "田中"
+
+def test_excluded_default_false():
+    emp = Employee(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎")
+    assert emp.excluded is False
+
+def test_load_no_excluded_column(tmp_path):
+    """excluded 列のない旧 CSV を読み込んでも excluded=False になること"""
+    csv_path = tmp_path / "employees.csv"
+    csv_path.write_text(
+        "name,email,filename_pattern\n山田太郎,yamada@example.com,山田太郎\n",
+        encoding="utf-8"
+    )
+    mgr = EmployeeManager(csv_path)
+    assert mgr.employees[0].excluded is False
+
+def test_load_excluded_column(tmp_path):
+    """excluded 列がある CSV を読み込んで excluded=True になること"""
+    csv_path = tmp_path / "employees.csv"
+    csv_path.write_text(
+        "name,email,filename_pattern,excluded\n山田太郎,yamada@example.com,山田太郎,True\n",
+        encoding="utf-8"
+    )
+    mgr = EmployeeManager(csv_path)
+    assert mgr.employees[0].excluded is True
+
+def test_save_includes_excluded(tmp_path):
+    """save() が excluded 列を CSV に書き出すこと"""
+    csv_path = tmp_path / "employees.csv"
+    mgr = EmployeeManager(csv_path)
+    mgr.add(Employee(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎", excluded=True))
+    mgr.save()
+    mgr2 = EmployeeManager(csv_path)
+    assert mgr2.employees[0].excluded is True

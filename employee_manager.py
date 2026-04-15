@@ -7,6 +7,7 @@ class Employee:
     name: str
     email: str
     filename_pattern: str
+    excluded: bool = False
 
 class EmployeeManager:
     def __init__(self, path: Path):
@@ -23,6 +24,7 @@ class EmployeeManager:
                     name=row["name"],
                     email=row["email"],
                     filename_pattern=row["filename_pattern"],
+                    excluded=row.get("excluded", "False") == "True",
                 )
                 for row in reader
             ]
@@ -30,10 +32,15 @@ class EmployeeManager:
     def save(self):
         self._path.parent.mkdir(parents=True, exist_ok=True)
         with self._path.open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["name", "email", "filename_pattern"])
+            writer = csv.DictWriter(f, fieldnames=["name", "email", "filename_pattern", "excluded"])
             writer.writeheader()
             for emp in self.employees:
-                writer.writerow({"name": emp.name, "email": emp.email, "filename_pattern": emp.filename_pattern})
+                writer.writerow({
+                    "name": emp.name,
+                    "email": emp.email,
+                    "filename_pattern": emp.filename_pattern,
+                    "excluded": emp.excluded,
+                })
 
     def add(self, employee: Employee):
         self.employees.append(employee)
