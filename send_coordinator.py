@@ -46,7 +46,7 @@ class SendReport:
             lines.append(f"  - {f_}")
         lines += ["", f"スキップ ({self.skip_count}名):"]
         for s in self.skipped:
-            lines.append(f"  - {s} - PDFなし")
+            lines.append(f"  - {s}")
         return "\n".join(lines)
 
 
@@ -91,8 +91,11 @@ class SendCoordinator:
 
         for mr in match_results:
             emp = mr.employee
-            if emp.excluded or mr.pdf_path is None:
-                report.skipped.append(emp.name)
+            if emp.excluded:
+                report.skipped.append(f"{emp.name} - 除外中")
+                continue
+            if mr.pdf_path is None:
+                report.skipped.append(f"{emp.name} - PDFなし")
                 continue
 
             body = render(body_template, name=emp.name, month=month, year=year)

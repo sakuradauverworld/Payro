@@ -50,6 +50,7 @@ def test_execute_skips_unmatched(mock_sender_class, employees, pdf_paths):
     assert report.success_count == 2
     assert report.skip_count == 1
     assert report.failure_count == 0
+    assert "田中次郎 - PDFなし" in report.skipped
 
 def test_match_longest_pattern_wins(tmp_path):
     """「田中」パターンが「田中太郎.pdf」を奪わないことを確認"""
@@ -144,4 +145,4 @@ def test_execute_skips_excluded(mock_sender_class, tmp_path):
     )
     assert report.success_count == 1
     assert report.skip_count == 1
-    assert "山田太郎" in report.skipped
+    assert "山田太郎 - 除外中" in report.skipped
