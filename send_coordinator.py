@@ -2,14 +2,14 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 
-from employee_manager import Employee
+from recipient_manager import Recipient
 from mail_sender import MailSender, SendResult
 from template_engine import render
 
 
 @dataclass
 class MatchResult:
-    employee: Employee
+    recipient: Recipient
     pdf_path: Path | None
 
 
@@ -51,28 +51,28 @@ class SendReport:
 
 
 class SendCoordinator:
-    def __init__(self, *, employees: list[Employee], pdf_paths: list[Path]):
-        self._employees = employees
+    def __init__(self, *, recipients: list[Recipient], pdf_paths: list[Path]):
+        self._recipients = recipients
         self._pdf_paths = pdf_paths
 
     def match(self) -> list[MatchResult]:
-        pdf_to_employee: dict = {}
+        pdf_to_recipient: dict = {}
         for pdf_path in self._pdf_paths:
             best = None
-            for emp in self._employees:
-                if emp.excluded:
+            for r in self._recipients:
+                if r.excluded:
                     continue
-                if emp.filename_pattern and emp.filename_pattern in pdf_path.name:
-                    if best is None or len(emp.filename_pattern) > len(best.filename_pattern):
-                        best = emp
+                if r.filename_pattern and r.filename_pattern in pdf_path.name:
+                    if best is None or len(r.filename_pattern) > len(best.filename_pattern):
+                        best = r
             if best is not None:
-                pdf_to_employee[pdf_path] = best
+                pdf_to_recipient[pdf_path] = best
         return [
             MatchResult(
-                employee=emp,
-                pdf_path=next((p for p, e in pdf_to_employee.items() if e == emp), None),
+                recipient=r,
+                pdf_path=next((p for p, recip in pdf_to_recipient.items() if recip == r), None),
             )
-            for emp in self._employees
+            for r in self._recipients
         ]
 
     def execute(
@@ -90,24 +90,24 @@ class SendCoordinator:
         report = SendReport()
 
         for mr in match_results:
-            emp = mr.employee
-            if emp.excluded:
-                report.skipped.append(f"{emp.name} - 除外中")
+            r = mr.recipient
+            if r.excluded:
+                report.skipped.append(f"{r.name} - 除外中")
                 continue
             if mr.pdf_path is None:
-                report.skipped.append(f"{emp.name} - PDFなし")
+                report.skipped.append(f"{r.name} - PDFなし")
                 continue
 
-            body = render(body_template, name=emp.name, month=month, year=year)
+            body = render(body_template, name=r.name, month=month, year=year)
             result = sender.send(
-                to_email=emp.email,
+                to_email=r.email,
                 subject=subject,
                 body=body,
                 pdf_path=mr.pdf_path,
             )
             if result == SendResult.SUCCESS:
-                report.success.append(f"{emp.name} <{emp.email}>")
+                report.success.append(f"{r.name} <{r.email}>")
             else:
-                report.failures.append(f"{emp.name} <{emp.email}> - {result.value}")
+                report.failures.append(f"{r.name} <{r.email}> - {result.value}")
 
         return report

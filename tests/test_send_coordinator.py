@@ -1,16 +1,17 @@
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
-from employee_manager import Employee
+from recipient_manager import Recipient
 from mail_sender import SendResult
 from send_coordinator import SendCoordinator, MatchResult, SendReport
 
+
 @pytest.fixture
-def employees():
+def recipients():
     return [
-        Employee(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎"),
-        Employee(name="佐藤花子", email="sato@example.com", filename_pattern="佐藤花子"),
-        Employee(name="田中次郎", email="tanaka@example.com", filename_pattern="田中次郎"),
+        Recipient(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎"),
+        Recipient(name="佐藤花子", email="sato@example.com", filename_pattern="佐藤花子"),
+        Recipient(name="田中次郎", email="tanaka@example.com", filename_pattern="田中次郎"),
     ]
 
 @pytest.fixture
@@ -21,22 +22,22 @@ def pdf_paths(tmp_path):
     p2.write_bytes(b"%PDF fake")
     return [p1, p2]
 
-def test_match(employees, pdf_paths):
-    coord = SendCoordinator(employees=employees, pdf_paths=pdf_paths)
+def test_match(recipients, pdf_paths):
+    coord = SendCoordinator(recipients=recipients, pdf_paths=pdf_paths)
     results = coord.match()
     matched = [r for r in results if r.pdf_path is not None]
     unmatched = [r for r in results if r.pdf_path is None]
     assert len(matched) == 2
     assert len(unmatched) == 1
-    assert unmatched[0].employee.name == "田中次郎"
+    assert unmatched[0].recipient.name == "田中次郎"
 
 @patch("send_coordinator.MailSender")
-def test_execute_skips_unmatched(mock_sender_class, employees, pdf_paths):
+def test_execute_skips_unmatched(mock_sender_class, recipients, pdf_paths):
     mock_sender = MagicMock()
     mock_sender.send.return_value = SendResult.SUCCESS
     mock_sender_class.return_value = mock_sender
 
-    coord = SendCoordinator(employees=employees, pdf_paths=pdf_paths)
+    coord = SendCoordinator(recipients=recipients, pdf_paths=pdf_paths)
     match_results = coord.match()
     report = coord.execute(
         match_results=match_results,
@@ -54,27 +55,27 @@ def test_execute_skips_unmatched(mock_sender_class, employees, pdf_paths):
 
 def test_match_longest_pattern_wins(tmp_path):
     """「田中」パターンが「田中太郎.pdf」を奪わないことを確認"""
-    employees = [
-        Employee(name="田中", email="tanaka@example.com", filename_pattern="田中"),
-        Employee(name="田中太郎", email="tanaka.taro@example.com", filename_pattern="田中太郎"),
+    recipients = [
+        Recipient(name="田中", email="tanaka@example.com", filename_pattern="田中"),
+        Recipient(name="田中太郎", email="tanaka.taro@example.com", filename_pattern="田中太郎"),
     ]
     pdf = tmp_path / "給与明細_田中太郎_202604.pdf"
     pdf.write_bytes(b"%PDF fake")
-    coord = SendCoordinator(employees=employees, pdf_paths=[pdf])
+    coord = SendCoordinator(recipients=recipients, pdf_paths=[pdf])
     results = coord.match()
-    taro = next(r for r in results if r.employee.name == "田中太郎")
-    tanaka = next(r for r in results if r.employee.name == "田中")
+    taro = next(r for r in results if r.recipient.name == "田中太郎")
+    tanaka = next(r for r in results if r.recipient.name == "田中")
     assert taro.pdf_path == pdf
     assert tanaka.pdf_path is None
 
 
 @patch("send_coordinator.MailSender")
-def test_execute_records_failure(mock_sender_class, employees, pdf_paths):
+def test_execute_records_failure(mock_sender_class, recipients, pdf_paths):
     mock_sender = MagicMock()
     mock_sender.send.return_value = SendResult.NETWORK_ERROR
     mock_sender_class.return_value = mock_sender
 
-    coord = SendCoordinator(employees=employees, pdf_paths=pdf_paths)
+    coord = SendCoordinator(recipients=recipients, pdf_paths=pdf_paths)
     match_results = coord.match()
     report = coord.execute(
         match_results=match_results,
@@ -89,50 +90,50 @@ def test_execute_records_failure(mock_sender_class, employees, pdf_paths):
     assert report.success_count == 0
 
 
-def test_match_excluded_employee_has_no_pdf(tmp_path):
-    """除外中の従業員は PDF があってもマッチしないこと"""
-    employees = [
-        Employee(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎", excluded=True),
+def test_match_excluded_recipient_has_no_pdf(tmp_path):
+    """除外中の宛先は PDF があってもマッチしないこと"""
+    recipients = [
+        Recipient(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎", excluded=True),
     ]
     pdf = tmp_path / "給与明細_山田太郎_202604.pdf"
     pdf.write_bytes(b"%PDF fake")
-    coord = SendCoordinator(employees=employees, pdf_paths=[pdf])
+    coord = SendCoordinator(recipients=recipients, pdf_paths=[pdf])
     results = coord.match()
     assert results[0].pdf_path is None
 
 
 def test_match_excluded_does_not_steal_pdf(tmp_path):
-    """除外中の従業員が他の従業員の PDF を奪わないこと"""
-    employees = [
-        Employee(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎", excluded=True),
-        Employee(name="佐藤花子", email="sato@example.com", filename_pattern="佐藤花子"),
+    """除外中の宛先が他の宛先の PDF を奪わないこと"""
+    recipients = [
+        Recipient(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎", excluded=True),
+        Recipient(name="佐藤花子", email="sato@example.com", filename_pattern="佐藤花子"),
     ]
     pdf_yamada = tmp_path / "給与明細_山田太郎_202604.pdf"
     pdf_sato = tmp_path / "給与明細_佐藤花子_202604.pdf"
     pdf_yamada.write_bytes(b"%PDF fake")
     pdf_sato.write_bytes(b"%PDF fake")
-    coord = SendCoordinator(employees=employees, pdf_paths=[pdf_yamada, pdf_sato])
+    coord = SendCoordinator(recipients=recipients, pdf_paths=[pdf_yamada, pdf_sato])
     results = coord.match()
-    yamada_result = next(r for r in results if r.employee.name == "山田太郎")
-    sato_result = next(r for r in results if r.employee.name == "佐藤花子")
+    yamada_result = next(r for r in results if r.recipient.name == "山田太郎")
+    sato_result = next(r for r in results if r.recipient.name == "佐藤花子")
     assert yamada_result.pdf_path is None
     assert sato_result.pdf_path == pdf_sato
 
 
 @patch("send_coordinator.MailSender")
 def test_execute_skips_excluded(mock_sender_class, tmp_path):
-    """execute() が除外中の従業員をスキップしてレポートに記録すること"""
+    """execute() が除外中の宛先をスキップしてレポートに記録すること"""
     mock_sender = MagicMock()
     mock_sender.send.return_value = SendResult.SUCCESS
     mock_sender_class.return_value = mock_sender
 
-    employees = [
-        Employee(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎", excluded=True),
-        Employee(name="佐藤花子", email="sato@example.com", filename_pattern="佐藤花子"),
+    recipients = [
+        Recipient(name="山田太郎", email="yamada@example.com", filename_pattern="山田太郎", excluded=True),
+        Recipient(name="佐藤花子", email="sato@example.com", filename_pattern="佐藤花子"),
     ]
     pdf = tmp_path / "給与明細_佐藤花子_202604.pdf"
     pdf.write_bytes(b"%PDF fake")
-    coord = SendCoordinator(employees=employees, pdf_paths=[pdf])
+    coord = SendCoordinator(recipients=recipients, pdf_paths=[pdf])
     match_results = coord.match()
     report = coord.execute(
         match_results=match_results,
