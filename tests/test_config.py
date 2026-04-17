@@ -1,7 +1,7 @@
 import json
 import pytest
 from pathlib import Path
-from unittest.mock import patch, call
+from unittest.mock import patch
 
 
 @pytest.fixture
@@ -9,8 +9,6 @@ def tmp_config(tmp_path):
     config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps({
         "gmail_address": "test@gmail.com",
-        "subject_template": "{year}年{month}月分 給与明細",
-        "body_template": "{name}様\n\n添付をご確認ください。",
         "filename_pattern_type": "contains"
     }), encoding="utf-8")
     return config_path
@@ -23,7 +21,6 @@ def test_load(tmp_config):
         cfg = Config(tmp_config)
         assert cfg.gmail_address == "test@gmail.com"
         assert cfg.gmail_app_password == "abcd efgh ijkl mnop"
-        assert cfg.subject_template == "{year}年{month}月分 給与明細"
         assert cfg.filename_pattern_type == "contains"
 
 
@@ -80,17 +77,14 @@ def test_missing_file_creates_defaults(tmp_path):
         cfg = Config(config_path)
         assert cfg.gmail_address == ""
         assert cfg.gmail_app_password == ""
-        assert cfg.subject_template == "{year}年{month}月分 給与明細"
 
 
 def test_migration_from_old_json(tmp_path):
-    """旧バージョンのconfig.json（パスワード平文）からkeyringへ移行する"""
+    """旧バージョンの config.json（パスワード平文）から keyring へ移行する"""
     config_path = tmp_path / "config.json"
     config_path.write_text(json.dumps({
         "gmail_address": "user@gmail.com",
         "gmail_app_password": "old_plain_password",
-        "subject_template": "{year}年{month}月分 給与明細",
-        "body_template": "body",
         "filename_pattern_type": "contains"
     }), encoding="utf-8")
 
@@ -98,10 +92,7 @@ def test_migration_from_old_json(tmp_path):
          patch("keyring.get_password", return_value="old_plain_password"):
         from config import Config
         cfg = Config(config_path)
-        # keyringに移行された
         mock_set.assert_any_call("payro", "gmail_app_password", "old_plain_password")
-        # config.jsonからは削除された
         saved = json.loads(config_path.read_text(encoding="utf-8"))
         assert "gmail_app_password" not in saved
-        # パスワードはメモリ上で正しく読める
         assert cfg.gmail_app_password == "old_plain_password"
