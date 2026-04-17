@@ -16,6 +16,7 @@ class SendTab(ttk.Frame):
         self._pdf_paths: list[Path] = []
         self._match_results: list = []
         self._coord: SendCoordinator | None = None
+        self._current_group_id: str | None = None
         self._build()
         self._try_init_dnd()
 
@@ -25,11 +26,18 @@ class SendTab(ttk.Frame):
             self._drop_area.drop_target_register(DND_FILES)
             self._drop_area.dnd_bind("<<Drop>>", self._on_drop)
         except Exception:
-            pass  # tkinterdnd2 未対応環境ではD&D無効
+            pass  # tkinterdnd2 未対応環境では D&D 無効
 
     def _build(self):
         top = ttk.Frame(self)
         top.pack(fill="x", padx=8, pady=8)
+
+        # グループ選択
+        ttk.Label(top, text="グループ:").pack(side="left")
+        self._group_var = tk.StringVar()
+        self._group_combo = ttk.Combobox(top, textvariable=self._group_var, state="readonly", width=20)
+        self._group_combo.pack(side="left", padx=(4, 12))
+        self._group_combo.bind("<<ComboboxSelected>>", self._on_group_change)
 
         # 年月入力
         ttk.Label(top, text="対象年月:").pack(side="left")
@@ -68,9 +76,35 @@ class SendTab(ttk.Frame):
         self._tree.tag_configure("skip", background="#e9ecef", foreground="gray")
         self._tree.pack(fill="both", expand=True, padx=8, pady=4)
 
-        # 送信ボタン
+        # 送信ボタン（初期は disabled、全員 PDF マッチ時のみ有効化）
         self._send_btn = ttk.Button(self, text="全員に送信", command=self._send, state="disabled")
         self._send_btn.pack(pady=8)
+
+    def refresh_groups(self):
+        """グループ一覧を再読み込みする（main.py 起動時・グループ管理から戻ったとき）"""
+        groups = self._app.recipient_mgr.groups
+        self._group_combo["values"] = [g.name for g in groups]
+        if groups:
+            current_ids = [g.id for g in groups]
+            if self._current_group_id not in current_ids:
+                self._current_group_id = groups[0].id
+                self._group_var.set(groups[0].name)
+            else:
+                group = next(g for g in groups if g.id == self._current_group_id)
+                self._group_var.set(group.name)
+            self._update_tree()
+        else:
+            self._current_group_id = None
+            self._group_var.set("")
+            self._tree.delete(*self._tree.get_children())
+            self._send_btn.config(state="disabled")
+
+    def _on_group_change(self, event):
+        sel_name = self._group_var.get()
+        group = next((g for g in self._app.recipient_mgr.groups if g.name == sel_name), None)
+        if group:
+            self._current_group_id = group.id
+            self._update_tree()
 
     def _select_folder(self):
         folder = filedialog.askdirectory(title="PDFフォルダを選択")
@@ -89,7 +123,6 @@ class SendTab(ttk.Frame):
 
     def _on_drop(self, event):
         raw = event.data
-        # tkinterdnd2はスペース区切りで複数ファイルを返す（パスにスペースがある場合は{}で囲まれる）
         paths = re.findall(r'\{([^}]+)\}|(\S+)', raw)
         self._pdf_paths = [Path(p[0] or p[1]) for p in paths if (p[0] or p[1]).lower().endswith(".pdf")]
         self._update_tree()
@@ -101,33 +134,34 @@ class SendTab(ttk.Frame):
 
     def _update_tree(self):
         self._tree.delete(*self._tree.get_children())
-        employees = self._app.employee_mgr.employees
-        if not employees:
-            messagebox.showwarning("従業員未登録", "先に「従業員管理」タブで従業員を登録してください。")
+        if not self._current_group_id:
+            return
+        recipients = self._app.recipient_mgr.get_recipients(self._current_group_id)
+        if not recipients:
+            messagebox.showwarning("宛先未登録", "先に「グループ管理」タブで宛先を登録してください。")
+            self._send_btn.config(state="disabled")
             return
 
-        coord = SendCoordinator(employees=employees, pdf_paths=self._pdf_paths)
+        coord = SendCoordinator(recipients=recipients, pdf_paths=self._pdf_paths)
         self._match_results = coord.match()
         self._coord = coord
 
+        all_ready = True
         for mr in self._match_results:
-            if mr.employee.excluded:
-                tag = "skip"
-                status = "除外中"
-                filename = "—"
+            if mr.recipient.excluded:
+                tag, status, filename = "skip", "除外中", "—"
             elif mr.pdf_path:
-                tag = "ok"
-                status = "送信予定"
-                filename = mr.pdf_path.name
+                tag, status, filename = "ok", "送信予定", mr.pdf_path.name
             else:
-                tag = "warn"
-                status = "PDFなし"
-                filename = "（PDFなし）"
+                tag, status, filename = "warn", "PDFなし", "（PDFなし）"
+                all_ready = False
             self._tree.insert("", "end",
-                               values=(status, mr.employee.name, mr.employee.email, filename),
+                               values=(status, mr.recipient.name, mr.recipient.email, filename),
                                tags=(tag,))
 
-        self._send_btn.config(state="normal")
+        # 非除外の宛先が全員 PDF マッチしている場合のみ送信ボタンを有効化
+        non_excluded = [mr for mr in self._match_results if not mr.recipient.excluded]
+        self._send_btn.config(state="normal" if (non_excluded and all_ready) else "disabled")
 
     def _send(self):
         if not self._year_var.get().isdigit() or not self._month_var.get().isdigit():
@@ -142,30 +176,31 @@ class SendTab(ttk.Frame):
         if not cfg.is_configured():
             messagebox.showerror("設定未完了", "「設定」タブでGmailアドレスとアプリパスワードを設定してください。")
             return
-
         if self._coord is None:
             return
 
-        # 送信直前に最新の従業員リストで再マッチング（PDF選択後の従業員変更に対応）
-        employees = self._app.employee_mgr.employees
-        self._coord = SendCoordinator(employees=employees, pdf_paths=self._pdf_paths)
-        self._match_results = self._coord.match()
-
-        no_pdf = [mr for mr in self._match_results
-                  if not mr.employee.excluded and mr.pdf_path is None]
-        if no_pdf:
-            names = "\n".join(f"  ・{mr.employee.name}" for mr in no_pdf)
-            ok = messagebox.askyesno(
-                "確認",
-                f"以下の方はPDFが見つかりません（除外設定されていません）。\nこのまま送信しますか？\n\n{names}"
-            )
-            if not ok:
-                return
-
-        self._send_btn.config(state="disabled", text="送信中...")
         year = self._year_var.get()
         month = self._month_var.get()
-        subject = render(cfg.subject_template, name="", year=year, month=month)
+
+        # 年月確認ダイアログ
+        if not messagebox.askyesno("送信確認", f"{year}年{month}月で送信してよいですか？"):
+            return
+
+        # 送信直前に最新の宛先リストで再マッチング（宛先変更に対応）
+        recipients = self._app.recipient_mgr.get_recipients(self._current_group_id)
+        self._coord = SendCoordinator(recipients=recipients, pdf_paths=self._pdf_paths)
+        self._match_results = self._coord.match()
+
+        # 選択グループのテンプレートを取得
+        group = next(g for g in self._app.recipient_mgr.groups if g.id == self._current_group_id)
+        template = self._app.template_mgr.get_by_id(group.template_id)
+        if template is None:
+            messagebox.showerror("テンプレートエラー", "グループに紐づけられたテンプレートが見つかりません。")
+            return
+
+        subject = render(template.subject, name="", year=year, month=month)
+
+        self._send_btn.config(state="disabled", text="送信中...")
 
         def _run():
             report = self._coord.execute(
@@ -173,7 +208,7 @@ class SendTab(ttk.Frame):
                 gmail_address=cfg.gmail_address,
                 gmail_app_password=cfg.gmail_app_password,
                 subject=subject,
-                body_template=cfg.body_template,
+                body_template=template.body,
                 year=year,
                 month=month,
             )
@@ -203,3 +238,6 @@ class SendTab(ttk.Frame):
                 Path(path).write_text(report_text, encoding="utf-8")
 
         ttk.Button(win, text="レポートを保存", command=_save).pack(pady=4)
+
+        # 送信後クリア
+        self._clear()
