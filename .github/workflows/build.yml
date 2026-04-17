@@ -11,9 +11,9 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            asset_name: Payro-windows.exe
+            asset_name: IkkiniOkuru-windows.exe
           - os: macos-latest
-            asset_name: Payro-mac.zip
+            asset_name: IkkiniOkuru-mac.zip
 
     runs-on: ${{ matrix.os }}
 
@@ -28,16 +28,16 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: ビルド
-        run: pyinstaller Payro.spec
+        run: pyinstaller IkkiniOkuru.spec
 
       - name: 成果物を準備（Windows）
         if: runner.os == 'Windows'
         shell: bash
-        run: mv dist/Payro.exe dist/Payro-windows.exe
+        run: mv dist/IkkiniOkuru.exe dist/IkkiniOkuru-windows.exe
 
       - name: 成果物を準備（macOS）
         if: runner.os == 'macOS'
-        run: cd dist && zip -r Payro-mac.zip Payro.app
+        run: cd dist && zip -r IkkiniOkuru-mac.zip IkkiniOkuru.app
 
       - name: GitHub Releaseに公開
         uses: softprops/action-gh-release@v2
