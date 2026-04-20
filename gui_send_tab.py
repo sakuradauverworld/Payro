@@ -60,9 +60,13 @@ class SendTab(ttk.Frame):
         )
         self._drop_area.pack(fill="x", padx=8, pady=4)
 
+        # コンテンツフレーム（マッチング一覧と誘導メッセージを切り替え）
+        self._content_frame = ttk.Frame(self)
+        self._content_frame.pack(fill="both", expand=True, padx=8, pady=4)
+
         # マッチング一覧
         cols = ("status", "name", "email", "filename")
-        self._tree = ttk.Treeview(self, columns=cols, show="headings", height=14)
+        self._tree = ttk.Treeview(self._content_frame, columns=cols, show="headings", height=14)
         self._tree.heading("status", text="状態")
         self._tree.heading("name", text="名前")
         self._tree.heading("email", text="メールアドレス")
@@ -74,7 +78,17 @@ class SendTab(ttk.Frame):
         self._tree.tag_configure("ok", background="#d4edda")
         self._tree.tag_configure("warn", background="#f8d7da")
         self._tree.tag_configure("skip", background="#e9ecef", foreground="gray")
-        self._tree.pack(fill="both", expand=True, padx=8, pady=4)
+        self._tree.pack(fill="both", expand=True)
+
+        # 誘導ラベル（初期は非表示）
+        self._guide_label = ttk.Label(
+            self._content_frame,
+            text="",
+            foreground="#888888",
+            justify="center",
+            font=("", 11),
+            anchor="center",
+        )
 
         # 送信ボタン（初期は disabled、全員 PDF マッチ時のみ有効化）
         self._send_btn = ttk.Button(self, text="全員に送信", command=self._send, state="disabled")
@@ -92,12 +106,10 @@ class SendTab(ttk.Frame):
             else:
                 group = next(g for g in groups if g.id == self._current_group_id)
                 self._group_var.set(group.name)
-            self._update_tree()
         else:
             self._current_group_id = None
             self._group_var.set("")
-            self._tree.delete(*self._tree.get_children())
-            self._send_btn.config(state="disabled")
+        self._update_tree()
 
     def _on_group_change(self, event):
         sel_name = self._group_var.get()
@@ -132,15 +144,33 @@ class SendTab(ttk.Frame):
         self._tree.delete(*self._tree.get_children())
         self._send_btn.config(state="disabled")
 
+    def _show_guide(self, message: str):
+        self._tree.pack_forget()
+        self._guide_label.config(text=message)
+        self._guide_label.pack(fill="both", expand=True)
+
+    def _hide_guide(self):
+        self._guide_label.pack_forget()
+        self._tree.pack(fill="both", expand=True)
+
     def _update_tree(self):
         self._tree.delete(*self._tree.get_children())
         if not self._current_group_id:
+            self._show_guide(
+                "まず「グループ管理」タブを開いて\n"
+                "グループを作成し、宛先を登録してください。"
+            )
+            self._send_btn.config(state="disabled")
             return
         recipients = self._app.recipient_mgr.get_recipients(self._current_group_id)
         if not recipients:
-            messagebox.showwarning("宛先未登録", "先に「グループ管理」タブで宛先を登録してください。")
+            self._show_guide(
+                "このグループには宛先が登録されていません。\n"
+                "「グループ管理」タブで宛先を追加してください。"
+            )
             self._send_btn.config(state="disabled")
             return
+        self._hide_guide()
 
         coord = SendCoordinator(recipients=recipients, pdf_paths=self._pdf_paths)
         self._match_results = coord.match()

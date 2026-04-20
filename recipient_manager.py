@@ -9,7 +9,6 @@ from pathlib import Path
 class Recipient:
     name: str
     email: str
-    filename_pattern: str
     excluded: bool = False
 
 
@@ -47,7 +46,6 @@ class RecipientManager:
                 Recipient(
                     name=row["name"],
                     email=row["email"],
-                    filename_pattern=row["filename_pattern"],
                     excluded=row.get("excluded", "False") == "True",
                 )
                 for row in reader
@@ -69,13 +67,12 @@ class RecipientManager:
         path = self._groups_dir / f"{group_id}.csv"
         recipients = self._recipients.get(group_id, [])
         with path.open("w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=["name", "email", "filename_pattern", "excluded"])
+            writer = csv.DictWriter(f, fieldnames=["name", "email", "excluded"])
             writer.writeheader()
             for r in recipients:
                 writer.writerow({
                     "name": r.name,
                     "email": r.email,
-                    "filename_pattern": r.filename_pattern,
                     "excluded": r.excluded,
                 })
 
@@ -106,7 +103,7 @@ class RecipientManager:
         )
         self.groups.append(new_group)
         self._recipients[new_group.id] = [
-            Recipient(name=r.name, email=r.email, filename_pattern=r.filename_pattern, excluded=r.excluded)
+            Recipient(name=r.name, email=r.email, excluded=r.excluded)
             for r in self._recipients.get(group_id, [])
         ]
         self.save_groups()
@@ -134,13 +131,12 @@ class RecipientManager:
         self.save_recipients(group_id)
 
     def import_recipients(self, group_id: str, csv_path: Path):
-        with csv_path.open(encoding="utf-8", newline="") as f:
+        with csv_path.open(encoding="utf-8-sig", newline="") as f:
             reader = csv.DictReader(f)
             new_recipients = [
                 Recipient(
                     name=row["name"],
                     email=row["email"],
-                    filename_pattern=row["filename_pattern"],
                     excluded=False,
                 )
                 for row in reader
@@ -150,4 +146,4 @@ class RecipientManager:
 
     @staticmethod
     def csv_template_headers() -> str:
-        return "name,email,filename_pattern\n"
+        return "name,email\n"

@@ -1,7 +1,7 @@
 import re
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import filedialog, messagebox, ttk
 
 from recipient_manager import Recipient
 
@@ -53,16 +53,14 @@ class GroupTab(ttk.Frame):
 
         ttk.Label(right, text="宛先一覧", font=("", 10, "bold")).pack(anchor="w")
 
-        cols = ("excluded", "name", "email", "filename_pattern")
+        cols = ("excluded", "name", "email")
         self._recip_tree = ttk.Treeview(right, columns=cols, show="headings", height=14)
         self._recip_tree.heading("excluded", text="送信対象")
         self._recip_tree.heading("name", text="名前")
         self._recip_tree.heading("email", text="メールアドレス")
-        self._recip_tree.heading("filename_pattern", text="ファイル名キーワード")
         self._recip_tree.column("excluded", width=80, anchor="center")
-        self._recip_tree.column("name", width=160)
-        self._recip_tree.column("email", width=240)
-        self._recip_tree.column("filename_pattern", width=200)
+        self._recip_tree.column("name", width=200)
+        self._recip_tree.column("email", width=300)
         self._recip_tree.tag_configure("excluded", foreground="gray")
         self._recip_tree.bind("<Button-1>", self._on_recip_click)
         self._recip_tree.pack(fill="both", expand=True, pady=(4, 0))
@@ -114,7 +112,7 @@ class GroupTab(ttk.Frame):
             checkbox = "☐" if r.excluded else "☑"
             tags = ("excluded",) if r.excluded else ()
             self._recip_tree.insert("", "end",
-                                    values=(checkbox, r.name, r.email, r.filename_pattern),
+                                    values=(checkbox, r.name, r.email),
                                     tags=tags)
 
     def _on_group_select(self, event):
@@ -165,9 +163,9 @@ class GroupTab(ttk.Frame):
         if not templates:
             messagebox.showwarning("テンプレートなし", "先に「テンプレート管理」タブでテンプレートを作成してください。")
             return
-        name = simpledialog.askstring("グループ追加", "グループ名:", parent=self)
-        if name and name.strip():
-            self._app.recipient_mgr.add_group(name.strip(), templates[0].id)
+        dialog = _GroupNameDialog(self)
+        if dialog.result:
+            self._app.recipient_mgr.add_group(dialog.result, templates[0].id)
             self._refresh_groups()
 
     def _duplicate_group(self):
@@ -204,7 +202,7 @@ class GroupTab(ttk.Frame):
         idx = self._recip_tree.index(sel[0])
         r = self._app.recipient_mgr.get_recipients(self._current_group_id)[idx]
         dialog = _RecipientDialog(self, title="宛先を編集",
-                                  initial={"name": r.name, "email": r.email, "filename_pattern": r.filename_pattern})
+                                  initial={"name": r.name, "email": r.email})
         if dialog.result:
             new_r = Recipient(**dialog.result)
             new_r.excluded = r.excluded
@@ -271,9 +269,9 @@ class _RecipientDialog(tk.Toplevel):
         self.resizable(False, False)
         self.grab_set()
         self.result = None
-        initial = initial or {"name": "", "email": "", "filename_pattern": ""}
+        initial = initial or {"name": "", "email": ""}
 
-        fields = [("名前:", "name"), ("メールアドレス:", "email"), ("ファイル名キーワード:", "filename_pattern")]
+        fields = [("名前:", "name"), ("メールアドレス:", "email")]
         self._vars = {}
         for i, (label, key) in enumerate(fields):
             ttk.Label(self, text=label).grid(row=i, column=0, padx=8, pady=4, sticky="e")
@@ -296,4 +294,49 @@ class _RecipientDialog(tk.Toplevel):
             messagebox.showwarning("入力エラー", "メールアドレスの形式が正しくありません。\n（例: name@example.com）")
             return
         self.result = values
+        self.destroy()
+
+
+class _GroupNameDialog(tk.Toplevel):
+    _PLACEHOLDER = "La pilates ○○店"
+
+    def __init__(self, parent):
+        super().__init__(parent)
+        self.title("グループ追加")
+        self.resizable(False, False)
+        self.grab_set()
+        self.result = None
+
+        ttk.Label(self, text="グループ名:").grid(row=0, column=0, padx=(12, 4), pady=12, sticky="e")
+        self._entry = tk.Entry(self, width=30, foreground="gray")
+        self._entry.insert(0, self._PLACEHOLDER)
+        self._entry.grid(row=0, column=1, padx=(4, 12), pady=12)
+        self._entry.bind("<FocusIn>", self._on_focus_in)
+        self._entry.bind("<FocusOut>", self._on_focus_out)
+        self._is_placeholder = True
+
+        btn_frame = ttk.Frame(self)
+        btn_frame.grid(row=1, column=0, columnspan=2, pady=(0, 12))
+        ttk.Button(btn_frame, text="OK", command=self._ok).pack(side="left", padx=4)
+        ttk.Button(btn_frame, text="キャンセル", command=self.destroy).pack(side="left", padx=4)
+        self.wait_window()
+
+    def _on_focus_in(self, event):
+        if self._is_placeholder:
+            self._entry.delete(0, "end")
+            self._entry.config(foreground="black")
+            self._is_placeholder = False
+
+    def _on_focus_out(self, event):
+        if not self._entry.get():
+            self._entry.insert(0, self._PLACEHOLDER)
+            self._entry.config(foreground="gray")
+            self._is_placeholder = True
+
+    def _ok(self):
+        value = "" if self._is_placeholder else self._entry.get().strip()
+        if not value:
+            messagebox.showwarning("入力エラー", "グループ名を入力してください。")
+            return
+        self.result = value
         self.destroy()

@@ -25,7 +25,7 @@ def migrate(data_dir: Path, config_path: Path) -> None:
     templates_json = data_dir / "templates.json"
     templates_json.write_text(
         json.dumps(
-            [{"id": "default", "name": "デフォルト", "subject": subject, "body": body}],
+            [{"id": "default", "name": "給料明細", "subject": subject, "body": body}],
             ensure_ascii=False,
             indent=2,
         ),
@@ -35,7 +35,7 @@ def migrate(data_dir: Path, config_path: Path) -> None:
     # groups.json を作成
     groups_json.write_text(
         json.dumps(
-            [{"id": "default", "name": "デフォルト", "template_id": "default"}],
+            [{"id": "default", "name": "La pilates ○○店", "template_id": "default"}],
             ensure_ascii=False,
             indent=2,
         ),

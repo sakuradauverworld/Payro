@@ -31,6 +31,7 @@ from gui_send_tab import SendTab
 from gui_group_tab import GroupTab
 from gui_template_tab import TemplateTab
 from gui_settings_tab import SettingsTab
+from gui_usage_tab import UsageTab
 
 
 class App(_TkBase):
@@ -49,13 +50,15 @@ class App(_TkBase):
 
         self.send_tab = SendTab(notebook, app=self)
         self.group_tab = GroupTab(notebook, app=self)
-        self.template_tab = TemplateTab(notebook, app=self)
         self.settings_tab = SettingsTab(notebook, app=self)
+        self.template_tab = TemplateTab(notebook, app=self)
+        self.usage_tab = UsageTab(notebook, app=self)
 
         notebook.add(self.send_tab, text="  送信  ")
         notebook.add(self.group_tab, text="  グループ管理  ")
+        notebook.add(self.settings_tab, text="  ユーザー設定  ")
         notebook.add(self.template_tab, text="  テンプレート管理  ")
-        notebook.add(self.settings_tab, text="  設定  ")
+        notebook.add(self.usage_tab, text="  使い方  ")
 
         self.send_tab.refresh_groups()
 

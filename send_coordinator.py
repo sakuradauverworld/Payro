@@ -62,8 +62,8 @@ class SendCoordinator:
             for r in self._recipients:
                 if r.excluded:
                     continue
-                if r.filename_pattern and r.filename_pattern in pdf_path.name:
-                    if best is None or len(r.filename_pattern) > len(best.filename_pattern):
+                if r.name and r.name in pdf_path.name:
+                    if best is None or len(r.name) > len(best.name):
                         best = r
             if best is not None:
                 pdf_to_recipient[pdf_path] = best

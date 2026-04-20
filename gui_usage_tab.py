@@ -1,0 +1,64 @@
+import tkinter as tk
+from tkinter import ttk
+
+
+class UsageTab(ttk.Frame):
+    def __init__(self, parent, *, app):
+        super().__init__(parent)
+        self._build()
+
+    def _build(self):
+        outer = ttk.Frame(self)
+        outer.pack(fill="both", expand=True, padx=16, pady=16)
+
+        ttk.Label(outer, text="使い方", font=("", 13, "bold")).pack(anchor="w", pady=(0, 12))
+
+        text = tk.Text(outer, wrap="word", state="normal", relief="flat",
+                       background=self.winfo_toplevel().cget("background"),
+                       font=("", 10), cursor="arrow")
+        text.pack(fill="both", expand=True)
+
+        content = """\
+【基本的な流れ】
+
+1. ユーザー設定タブ
+   GmailアドレスとアプリパスワードをGoogleアカウントで発行して入力し、「保存」してください。
+
+2. グループ管理タブ
+   送信先グループを作成し、宛先（氏名・メールアドレス）を登録します。
+   CSVインポートを使うと一括で宛先を追加できます。
+
+3. テンプレート管理タブ
+   メール件名と本文を登録します。
+   使用できる変数: {name}（氏名）、{year}（年）、{month}（月）
+
+4. 送信タブ
+   ① グループを選択する
+   ② 年月を入力する
+   ③ PDFファイルをドラッグ&ドロップまたはフォルダ選択で追加する
+   ④ 宛先とPDFが正しくマッチしていることを確認する
+   ⑤ 「送信」ボタンを押して確認ダイアログでOKを押す
+
+
+【CSVインポートの手順】
+
+1. グループ管理タブで対象グループを選択する
+2. 「CSVテンプレート出力」でヘッダー行のみのCSVをダウンロードする
+3. ExcelやスプレッドシートでCSVに宛先を記入する
+   　列: name（氏名）、email（メールアドレス）
+4. 「CSVインポート」で記入済みCSVを読み込む
+
+
+【PDFのマッチングについて】
+
+宛先の名前がPDFファイル名に含まれていると自動的にマッチします。
+例: 名前「山田太郎」→「山田太郎_202504.pdf」にマッチ
+
+
+【送信ボタンが押せない場合】
+
+非除外の宛先全員にPDFが1対1でマッチしている場合のみ送信できます。
+一覧で「PDFなし」になっている宛先がないか確認してください。
+"""
+        text.insert("1.0", content)
+        text.config(state="disabled")
