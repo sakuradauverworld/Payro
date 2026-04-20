@@ -1,7 +1,0 @@
-{
-  "gmail_address": "",
-  "gmail_app_password": "",
-  "subject_template": "{year}年{month}月分 給与明細",
-  "body_template": "{name}様\n\n{month}月分の給与明細を添付いたします。\n\nご確認よろしくお願いいたします。",
-  "filename_pattern_type": "contains"
-}
