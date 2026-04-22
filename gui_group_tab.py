@@ -20,24 +20,22 @@ class GroupTab(ttk.Frame):
 
     def _build(self):
         # 左ペイン: グループ一覧
-        left = ttk.Frame(self, width=220)
+        left = ttk.Frame(self, width=320)
         left.pack(side="left", fill="y", padx=(8, 4), pady=8)
         left.pack_propagate(False)
 
         ttk.Label(left, text="グループ一覧", font=("", 10, "bold")).pack(anchor="w")
 
-        self._group_listbox = tk.Listbox(left, selectmode="single", height=14)
-        self._group_listbox.pack(fill="both", expand=True, pady=(4, 0))
-        self._group_listbox.bind("<<ListboxSelect>>", self._on_group_select)
-        self._group_listbox.bind("<Double-Button-1>", self._on_group_double_click)
-
-        tmpl_frame = ttk.Frame(left)
-        tmpl_frame.pack(fill="x", pady=(6, 0))
-        ttk.Label(tmpl_frame, text="テンプレート:").pack(anchor="w")
-        self._tmpl_var = tk.StringVar()
-        self._tmpl_combo = ttk.Combobox(tmpl_frame, textvariable=self._tmpl_var, state="readonly", width=24)
-        self._tmpl_combo.pack(fill="x")
-        self._tmpl_combo.bind("<<ComboboxSelected>>", self._on_template_change)
+        cols = ("name", "template")
+        self._group_tree = ttk.Treeview(left, columns=cols, show="headings", height=14, selectmode="browse")
+        self._group_tree.heading("name", text="グループ名")
+        self._group_tree.heading("template", text="テンプレート")
+        self._group_tree.column("name", width=155)
+        self._group_tree.column("template", width=155)
+        self._group_tree.pack(fill="both", expand=True, pady=(4, 0))
+        self._group_tree.bind("<<TreeviewSelect>>", self._on_group_select)
+        self._group_tree.bind("<Double-Button-1>", self._on_group_double_click)
+        self._group_tree.bind("<Button-1>", self._on_group_click)
 
         btn_frame = ttk.Frame(left)
         btn_frame.pack(fill="x", pady=(6, 0))
@@ -75,34 +73,28 @@ class GroupTab(ttk.Frame):
         ttk.Button(recip_btn_frame, text="CSVインポート", command=self._import_csv).pack(side="left", padx=2)
 
     def _refresh_groups(self):
-        self._group_listbox.delete(0, "end")
+        self._group_tree.delete(*self._group_tree.get_children())
         for group in self._app.recipient_mgr.groups:
-            self._group_listbox.insert("end", group.name)
-        self._refresh_template_combo()
+            tmpl = self._app.template_mgr.get_by_id(group.template_id)
+            tmpl_name = tmpl.name if tmpl else "（未設定）"
+            self._group_tree.insert("", "end", values=(group.name, tmpl_name))
         if self._app.recipient_mgr.groups:
             current_ids = [g.id for g in self._app.recipient_mgr.groups]
             if self._current_group_id not in current_ids:
                 self._current_group_id = self._app.recipient_mgr.groups[0].id
-                self._group_listbox.selection_set(0)
+                self._group_tree.selection_set(self._group_tree.get_children()[0])
             else:
                 idx = next(i for i, g in enumerate(self._app.recipient_mgr.groups) if g.id == self._current_group_id)
-                self._group_listbox.selection_set(idx)
-            self._refresh_template_for_current_group()
+                self._group_tree.selection_set(self._group_tree.get_children()[idx])
         else:
             self._current_group_id = None
         self._refresh_recipients()
+        if hasattr(self._app, 'send_tab'):
+            self._app.send_tab.refresh_groups()
 
     def _refresh_template_combo(self):
-        self._tmpl_combo["values"] = [t.name for t in self._app.template_mgr.templates]
-
-    def _refresh_template_for_current_group(self):
-        if not self._current_group_id:
-            self._tmpl_var.set("")
-            return
-        group = next((g for g in self._app.recipient_mgr.groups if g.id == self._current_group_id), None)
-        if group:
-            tmpl = self._app.template_mgr.get_by_id(group.template_id)
-            self._tmpl_var.set(tmpl.name if tmpl else "")
+        # テンプレートタブから呼ばれる。グループ一覧を再描画して最新のテンプレート名を反映する。
+        self._refresh_groups()
 
     def _refresh_recipients(self):
         self._recip_tree.delete(*self._recip_tree.get_children())
@@ -116,25 +108,37 @@ class GroupTab(ttk.Frame):
                                     tags=tags)
 
     def _on_group_select(self, event):
-        sel = self._group_listbox.curselection()
+        sel = self._group_tree.selection()
         if not sel:
             return
-        self._current_group_id = self._app.recipient_mgr.groups[sel[0]].id
-        self._refresh_template_for_current_group()
-        self._refresh_recipients()
+        idx = self._group_tree.index(sel[0])
+        groups = self._app.recipient_mgr.groups
+        if idx < len(groups):
+            self._current_group_id = groups[idx].id
+            self._refresh_recipients()
+
+    def _on_group_click(self, event):
+        column = self._group_tree.identify_column(event.x)
+        row_id = self._group_tree.identify_row(event.y)
+        if row_id and column == "#2":
+            self._group_tree.after(10, lambda: self._edit_template_inline(row_id))
 
     def _on_group_double_click(self, event):
-        sel = self._group_listbox.curselection()
-        if not sel:
+        column = self._group_tree.identify_column(event.x)
+        row_id = self._group_tree.identify_row(event.y)
+        if not row_id or column != "#1":
             return
-        idx = sel[0]
-        group = self._app.recipient_mgr.groups[idx]
-        bbox = self._group_listbox.bbox(idx)
+        idx = self._group_tree.index(row_id)
+        groups = self._app.recipient_mgr.groups
+        if idx >= len(groups):
+            return
+        group = groups[idx]
+        bbox = self._group_tree.bbox(row_id, "#1")
         if not bbox:
             return
         x, y, w, h = bbox
         entry_var = tk.StringVar(value=group.name)
-        entry = ttk.Entry(self._group_listbox, textvariable=entry_var)
+        entry = ttk.Entry(self._group_tree, textvariable=entry_var)
         entry.place(x=x, y=y, width=w, height=h)
         entry.focus()
         entry.select_range(0, "end")
@@ -150,13 +154,39 @@ class GroupTab(ttk.Frame):
         entry.bind("<FocusOut>", confirm)
         entry.bind("<Escape>", lambda e: entry.destroy())
 
-    def _on_template_change(self, event):
-        if not self._current_group_id:
+    def _edit_template_inline(self, row_id):
+        bbox = self._group_tree.bbox(row_id, "#2")
+        if not bbox:
             return
-        selected_name = self._tmpl_var.get()
-        tmpl = next((t for t in self._app.template_mgr.templates if t.name == selected_name), None)
-        if tmpl:
-            self._app.recipient_mgr.update_group(self._current_group_id, template_id=tmpl.id)
+        x, y, w, h = bbox
+        idx = self._group_tree.index(row_id)
+        groups = self._app.recipient_mgr.groups
+        if idx >= len(groups):
+            return
+        group = groups[idx]
+        templates = self._app.template_mgr.templates
+        if not templates:
+            return
+        tmpl_names = [t.name for t in templates]
+        current_tmpl = self._app.template_mgr.get_by_id(group.template_id)
+        current_name = current_tmpl.name if current_tmpl else ""
+
+        combo_var = tk.StringVar(value=current_name)
+        combo = ttk.Combobox(self._group_tree, textvariable=combo_var, values=tmpl_names, state="readonly")
+        combo.place(x=x, y=y, width=w, height=h)
+        combo.focus()
+
+        def on_select(event=None):
+            new_name = combo_var.get()
+            tmpl = next((t for t in templates if t.name == new_name), None)
+            combo.destroy()
+            if tmpl and tmpl.id != group.template_id:
+                self._app.recipient_mgr.update_group(group.id, template_id=tmpl.id)
+                self._refresh_groups()
+
+        combo.bind("<<ComboboxSelected>>", on_select)
+        combo.bind("<Escape>", lambda e: combo.destroy())
+        combo.bind("<FocusOut>", lambda e: combo.destroy())
 
     def _add_group(self):
         templates = self._app.template_mgr.templates

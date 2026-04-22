@@ -71,6 +71,8 @@ class TemplateTab(ttk.Frame):
         else:
             self._current_template_id = None
             self._clear_editor()
+        if hasattr(self._app, 'group_tab'):
+            self._app.group_tab._refresh_template_combo()
 
     def _on_select(self, event):
         sel = self._listbox.curselection()

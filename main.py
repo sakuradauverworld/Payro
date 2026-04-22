@@ -45,25 +45,34 @@ class App(_TkBase):
         self.recipient_mgr = RecipientManager(DATA_DIR)
         self.template_mgr = TemplateManager(DATA_DIR / "templates.json")
 
-        notebook = ttk.Notebook(self)
-        notebook.pack(fill="both", expand=True, padx=8, pady=8)
+        self._notebook = ttk.Notebook(self)
+        self._notebook.pack(fill="both", expand=True, padx=8, pady=8)
 
-        self.send_tab = SendTab(notebook, app=self)
-        self.group_tab = GroupTab(notebook, app=self)
-        self.settings_tab = SettingsTab(notebook, app=self)
-        self.template_tab = TemplateTab(notebook, app=self)
-        self.usage_tab = UsageTab(notebook, app=self)
+        self.send_tab = SendTab(self._notebook, app=self)
+        self.group_tab = GroupTab(self._notebook, app=self)
+        self.settings_tab = SettingsTab(self._notebook, app=self)
+        self.template_tab = TemplateTab(self._notebook, app=self)
+        self.usage_tab = UsageTab(self._notebook, app=self)
 
-        notebook.add(self.send_tab, text="  送信  ")
-        notebook.add(self.group_tab, text="  グループ管理  ")
-        notebook.add(self.settings_tab, text="  ユーザー設定  ")
-        notebook.add(self.template_tab, text="  テンプレート管理  ")
-        notebook.add(self.usage_tab, text="  使い方  ")
+        self._notebook.add(self.send_tab, text="  送信  ")
+        self._notebook.add(self.group_tab, text="  グループ管理  ")
+        self._notebook.add(self.settings_tab, text="  ユーザー設定  ")
+        self._notebook.add(self.template_tab, text="  テンプレート管理  ")
+        self._notebook.add(self.usage_tab, text="  使い方  ")
+
+        self._prev_tab = None
+        self._notebook.bind("<<NotebookTabChanged>>", self._on_tab_changed)
 
         self.send_tab.refresh_groups()
 
         if not self.config_data.is_configured():
-            notebook.select(self.settings_tab)
+            self._notebook.select(self.settings_tab)
+
+    def _on_tab_changed(self, event):
+        current = self._notebook.nametowidget(self._notebook.select())
+        if self._prev_tab is self.send_tab and current is not self.send_tab:
+            self.send_tab._clear()
+        self._prev_tab = current
 
 
 if __name__ == "__main__":
