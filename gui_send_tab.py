@@ -288,7 +288,7 @@ class SendTab(ttk.Frame):
             f"\n"
             f"【件名】\n{subject}\n"
             f"\n"
-            f"【本文プレビュー（1通目）】\n{body_preview}"
+            f"【本文プレビュー（送信例）】\n{body_preview}"
         )
 
         text = tk.Text(win, wrap="word", height=18)
