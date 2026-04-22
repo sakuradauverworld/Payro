@@ -116,6 +116,7 @@ class SendTab(ttk.Frame):
         group = next((g for g in self._app.recipient_mgr.groups if g.name == sel_name), None)
         if group:
             self._current_group_id = group.id
+            self._pdf_paths = []
             self._update_tree()
 
     def _select_folder(self):
@@ -170,6 +171,13 @@ class SendTab(ttk.Frame):
             )
             self._send_btn.config(state="disabled")
             return
+        if not self._pdf_paths:
+            self._hide_guide()
+            self._match_results = []
+            self._coord = None
+            self._send_btn.config(state="disabled")
+            return
+
         self._hide_guide()
 
         coord = SendCoordinator(recipients=recipients, pdf_paths=self._pdf_paths)
@@ -212,21 +220,35 @@ class SendTab(ttk.Frame):
         year = self._year_var.get()
         month = self._month_var.get()
 
-        # 年月確認ダイアログ
-        if not messagebox.askyesno("送信確認", f"{year}年{month}月で送信してよいですか？"):
+        # 選択グループのテンプレートを取得（確認ダイアログ前）
+        group = next(g for g in self._app.recipient_mgr.groups if g.id == self._current_group_id)
+        template = self._app.template_mgr.get_by_id(group.template_id)
+        if template is None:
+            messagebox.showerror("テンプレートエラー", "グループに紐づけられたテンプレートが見つかりません。")
+            return
+
+        # プレビュー用レンダリング（最初の非除外宛先の名前を使用）
+        recipients_for_preview = self._app.recipient_mgr.get_recipients(self._current_group_id)
+        non_excluded = [r for r in recipients_for_preview if not r.excluded]
+        preview_name = non_excluded[0].name if non_excluded else "（氏名）"
+        subject_preview = render(template.subject, name=preview_name, year=year, month=month)
+        body_preview = render(template.body, name=preview_name, year=year, month=month)
+
+        # 詳細確認ダイアログ
+        if not self._show_send_confirm_dialog(
+            group_name=group.name,
+            recipient_count=len(non_excluded),
+            year=year,
+            month=month,
+            subject=subject_preview,
+            body_preview=body_preview,
+        ):
             return
 
         # 送信直前に最新の宛先リストで再マッチング（宛先変更に対応）
         recipients = self._app.recipient_mgr.get_recipients(self._current_group_id)
         self._coord = SendCoordinator(recipients=recipients, pdf_paths=self._pdf_paths)
         self._match_results = self._coord.match()
-
-        # 選択グループのテンプレートを取得
-        group = next(g for g in self._app.recipient_mgr.groups if g.id == self._current_group_id)
-        template = self._app.template_mgr.get_by_id(group.template_id)
-        if template is None:
-            messagebox.showerror("テンプレートエラー", "グループに紐づけられたテンプレートが見つかりません。")
-            return
 
         subject = render(template.subject, name="", year=year, month=month)
 
@@ -245,6 +267,49 @@ class SendTab(ttk.Frame):
             self.after(0, lambda: self._on_done(report, year, month))
 
         threading.Thread(target=_run, daemon=True).start()
+
+    def _show_send_confirm_dialog(self, *, group_name: str, recipient_count: int,
+                                   year: str, month: str, subject: str, body_preview: str) -> bool:
+        result = tk.BooleanVar(value=False)
+
+        win = tk.Toplevel(self)
+        win.title("送信確認")
+        win.geometry("520x440")
+        win.resizable(False, False)
+        win.grab_set()
+
+        info = (
+            f"グループ　：{group_name}\n"
+            f"宛先数　　：{recipient_count}名\n"
+            f"対象年月　：{year}年{month}月\n"
+            f"\n"
+            f"【件名】\n{subject}\n"
+            f"\n"
+            f"【本文プレビュー（1通目）】\n{body_preview}"
+        )
+
+        text = tk.Text(win, wrap="word", height=18)
+        text.insert("1.0", info)
+        text.config(state="disabled")
+        text.pack(fill="both", expand=True, padx=12, pady=(12, 4))
+
+        btn_frame = ttk.Frame(win)
+        btn_frame.pack(pady=8)
+
+        def _ok():
+            result.set(True)
+            win.destroy()
+
+        def _cancel():
+            win.destroy()
+
+        ttk.Button(btn_frame, text="送信する", command=_ok).pack(side="left", padx=8)
+        ttk.Button(btn_frame, text="キャンセル", command=_cancel).pack(side="left", padx=8)
+
+        win.protocol("WM_DELETE_WINDOW", _cancel)
+        win.wait_window()
+
+        return result.get()
 
     def _on_done(self, report, year, month):
         self._send_btn.config(state="normal", text="全員に送信")
