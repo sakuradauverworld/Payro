@@ -221,7 +221,10 @@ class SendTab(ttk.Frame):
         month = self._month_var.get()
 
         # 選択グループのテンプレートを取得（確認ダイアログ前）
-        group = next(g for g in self._app.recipient_mgr.groups if g.id == self._current_group_id)
+        group = next((g for g in self._app.recipient_mgr.groups if g.id == self._current_group_id), None)
+        if group is None:
+            messagebox.showerror("グループエラー", "選択中のグループが見つかりません。")
+            return
         template = self._app.template_mgr.get_by_id(group.template_id)
         if template is None:
             messagebox.showerror("テンプレートエラー", "グループに紐づけられたテンプレートが見つかりません。")
